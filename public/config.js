@@ -2,7 +2,7 @@
 
 // Replace this placeholder after deploying the FastAPI backend to Render.
 const ONLINE_API_URL =
-  "https://REPLACE-WITH-YOUR-RENDER-URL.onrender.com";
+  "https://ose-arima-sarima-backend.onrender.com";
 
 const queryApi =
   new URLSearchParams(window.location.search).get("api");
