@@ -19,7 +19,11 @@ const charts = {
   interval: null
 };
 
-const API_BASE = window.OSE_API_BASE;
+// Đọc URL backend tại thời điểm gọi, sau khi config.js chọn xong máy chủ
+async function getApiBase() {
+  if (window.OSE_API_READY) await window.OSE_API_READY;
+  return window.OSE_API_BASE;
+}
 
 const fileInput = document.getElementById("fileInput");
 const loadButton = document.getElementById("loadButton");
@@ -67,6 +71,7 @@ function setBackendStatus(message, type) {
 }
 
 async function apiRequest(path, payload = null, options = {}) {
+  const API_BASE = await getApiBase();
   if (!API_BASE || API_BASE.includes("REPLACE-WITH-YOUR-RENDER-URL")) {
     throw new Error(
       "Backend URL is not configured. Update public/config.js with the Render URL."
@@ -108,8 +113,12 @@ async function apiRequest(path, payload = null, options = {}) {
 async function checkBackend() {
   try {
     setBackendStatus("checking...", "checking");
-    const health = await apiRequest("/api/health", null, { timeoutMs: 30000 });
-    setBackendStatus(`online · v${health.version}`, "online");
+    // 70 giây: đủ để Render free khởi động nếu phải dùng dự phòng
+    const health = await apiRequest("/api/health", null, { timeoutMs: 70000 });
+    const source = window.OSE_API_BASE.includes("onrender.com") ? "Render"
+                 : window.OSE_API_BASE.includes("127.0.0.1") ? "Local"
+                 : "Home server";
+    setBackendStatus(`online · v${health.version} · ${source}`, "online");
   } catch (error) {
     setBackendStatus("offline or not configured", "offline");
   }
