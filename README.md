@@ -1,6 +1,8 @@
-# OSE ARIMA / SARIMA Frontend
+# OSE ARIMA / SARIMA Web App
 
-Static browser frontend for the OSE ARIMA/SARIMA time-series application.
+Static browser app for ARIMA/SARIMA time-series analysis. **All calculations run
+in the browser** (`public/arima-engine.js`); no backend server is needed and the
+data never leaves the user's device.
 
 ## Structure
 
@@ -8,32 +10,40 @@ Static browser frontend for the OSE ARIMA/SARIMA time-series application.
 public/
   index.html
   styles.css
-  config.js
-  app.js
+  arima-engine.js   calculation engine (ported 1:1 from ose-arima-sarima-backend/engine.py)
+  app.js            UI, charts, Excel import/export
   _headers
+examples/
+  demo_monthly_demand.csv
 ```
 
-## Configure the API
+## Engine
 
-Edit `public/config.js` and replace the placeholder with the actual Render URL:
+`window.ArimaEngine` exposes the same request/response shapes as the former API:
 
-```js
-const ONLINE_API_URL = "https://your-arima-backend.onrender.com";
-```
+| Function | Former endpoint |
+|---|---|
+| `ArimaEngine.explore(req)` | `POST /api/explore` |
+| `ArimaEngine.estimate(req)` | `POST /api/estimate` |
+| `ArimaEngine.forecast(req)` | `POST /api/forecast` |
+| `ArimaEngine.errors(req)` | `POST /api/errors` |
+
+Conditional least squares with iterative residual regression, Monte Carlo
+forecasting (empirical 95% interval) and one-step-ahead errors (MSE, RMSE, R²).
+Estimation, ACF/PACF, spectrum and one-step errors match the Python backend to
+about 1e-9 relative for well-conditioned models. Forecast paths are random, so
+they agree statistically, not path by path (numpy's random stream is not
+reproduced). It does not reproduce MATLAB Econometrics Toolbox
+maximum-likelihood estimation exactly.
 
 ## Local test
 
 ```powershell
-cd C:\ose-arima-sarima-frontend\public
+cd C:\apps\ose-arima-sarima-frontend\public
 python -m http.server 5500
 ```
 
-Open `http://127.0.0.1:5500`. Localhost uses `http://127.0.0.1:8000` by default.
-You can override the API URL with a query parameter:
-
-```text
-http://127.0.0.1:5500/?api=https://your-arima-backend.onrender.com
-```
+Open `http://127.0.0.1:5500`.
 
 ## Cloudflare Pages
 
@@ -42,5 +52,3 @@ http://127.0.0.1:5500/?api=https://your-arima-backend.onrender.com
 - Root directory: leave blank
 - Build command: `exit 0`
 - Build output directory: `public`
-
-No Wrangler configuration is required for Pages.

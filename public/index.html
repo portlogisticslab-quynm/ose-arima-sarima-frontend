@@ -7,19 +7,19 @@
   <link rel="stylesheet" href="./styles.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
-  <script src="./config.js?v=20260930-1" defer></script>
-  <script src="./app.js?v=20260930-1" defer></script>
+  <script src="./arima-engine.js?v=20261024-1" defer></script>
+  <script src="./app.js?v=20261024-1" defer></script>
 </head>
 <body>
 <div class="app">
 
   <header class="header">
-    <h1>ARIMA / SARIMA Web App v2</h1>
+    <h1>ARIMA / SARIMA Web App v3</h1>
 
     <p>
-      Browser frontend connected to a FastAPI backend for time-series exploration,
-      conditional least-squares estimation, simulation forecasting, diagnostics,
-      and Excel export.
+      Time-series exploration, conditional least-squares estimation, simulation
+      forecasting, diagnostics and Excel export &mdash; all calculated in your
+      browser. Your data never leaves this device.
     </p>
   </header>
 
@@ -31,7 +31,7 @@
 
       <div id="backendStatus" class="backend-status checking">
         <span class="backend-dot"></span>
-        <span id="backendStatusText">Backend: checking...</span>
+        <span id="backendStatusText">Loading&hellip;</span>
       </div>
 
       <div class="form-row">

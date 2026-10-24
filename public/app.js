@@ -19,11 +19,6 @@ const charts = {
   interval: null
 };
 
-// Đọc URL backend tại thời điểm gọi, sau khi config.js chọn xong máy chủ
-async function getApiBase() {
-  if (window.OSE_API_READY) await window.OSE_API_READY;
-  return window.OSE_API_BASE;
-}
 
 const fileInput = document.getElementById("fileInput");
 const loadButton = document.getElementById("loadButton");
@@ -67,60 +62,32 @@ function setStatus(message, type = "") {
 
 function setBackendStatus(message, type) {
   backendStatus.className = `backend-status ${type}`;
-  backendStatusText.textContent = `Backend: ${message}`;
+  backendStatusText.textContent = message;
 }
 
-async function apiRequest(path, payload = null, options = {}) {
-  const API_BASE = await getApiBase();
-  if (!API_BASE || API_BASE.includes("REPLACE-WITH-YOUR-RENDER-URL")) {
-    throw new Error(
-      "Backend URL is not configured. Update public/config.js with the Render URL."
-    );
+// ============================================================
+// CALCULATION ENGINE: runs in the browser (arima-engine.js), no backend
+// ============================================================
+
+/* Same request/response shapes as the former /api/explore, /api/estimate,
+   /api/forecast and /api/errors endpoints. */
+async function runEngine(name, payload) {
+  if (!window.ArimaEngine) {
+    throw new Error("Calculation engine not loaded (arima-engine.js). Reload the page.");
   }
-
-  const controller = new AbortController();
-  const timeout = setTimeout(
-    () => controller.abort(),
-    options.timeoutMs || 120000
-  );
-
-  try {
-    const response = await fetch(`${API_BASE}${path}`, {
-      method: payload === null ? "GET" : "POST",
-      headers: payload === null ? undefined : { "Content-Type": "application/json" },
-      body: payload === null ? undefined : JSON.stringify(payload),
-      signal: controller.signal
-    });
-
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      const detail = typeof data.detail === "string"
-        ? data.detail
-        : `Backend request failed with HTTP ${response.status}.`;
-      throw new Error(detail);
-    }
-    return data;
-  } catch (error) {
-    if (error.name === "AbortError") {
-      throw new Error("Backend request timed out.");
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
+  await nextFrame();
+  return window.ArimaEngine[name](payload);
 }
 
-async function checkBackend() {
-  try {
-    setBackendStatus("checking...", "checking");
-    // 70 giây: đủ để Render free khởi động nếu phải dùng dự phòng
-    const health = await apiRequest("/api/health", null, { timeoutMs: 70000 });
-    const source = window.OSE_API_BASE.includes("onrender.com") ? "Render"
-                 : window.OSE_API_BASE.includes("127.0.0.1") ? "Local"
-                 : "Home server";
-    setBackendStatus(`online · v${health.version} · ${source}`, "online");
-  } catch (error) {
-    setBackendStatus("offline or not configured", "offline");
+function nextFrame() {
+  return new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)));
+}
+
+function initEngineBadge() {
+  if (window.ArimaEngine) {
+    setBackendStatus("Runs in your browser · no server", "online");
+  } else {
+    setBackendStatus("Engine not loaded", "offline");
   }
 }
 
@@ -343,7 +310,7 @@ async function plotExploration() {
       correlation_type: corrType.value
     };
     setStatus("updating exploratory plots...");
-    const result = await apiRequest("/api/explore", payload);
+    const result = await runEngine("explore", payload);
     plotSignal(result);
     plotSpectrum(result.spectrum);
     plotCorrelation(result.correlation);
@@ -355,9 +322,9 @@ async function plotExploration() {
 
 estimateButton.addEventListener("click", async () => {
   try {
-    setStatus("estimating model on backend...");
+    setStatus("estimating model in your browser...");
     estimateButton.disabled = true;
-    const result = await apiRequest("/api/estimate", basePayload());
+    const result = await runEngine("estimate", basePayload());
     state.model = result;
     state.forecast = null;
     renderModelSummary(result);
@@ -391,7 +358,7 @@ forecastButton.addEventListener("click", async () => {
     if (!state.model) throw new Error("Please estimate the model first.");
     validateControls();
     forecastButton.disabled = true;
-    setStatus("simulating forecast paths on backend...");
+    setStatus("simulating forecast paths in your browser...");
     const payload = {
       ...basePayload(),
       horizon: Number(futureSamples.value),
@@ -399,7 +366,7 @@ forecastButton.addEventListener("click", async () => {
       interval_paths: Math.max(500, Number(pathCount.value)),
       seed: null
     };
-    const result = await apiRequest("/api/forecast", payload, { timeoutMs: 180000 });
+    const result = await runEngine("forecast", payload);
     state.forecast = result;
     state.model = result.model;
     renderModelSummary(result.model);
@@ -424,7 +391,7 @@ errorsButton.addEventListener("click", async () => {
       test_window: Number(testWindow.value),
       lag_shift: Math.floor(Number(lagShift.value) || 0)
     };
-    const result = await apiRequest("/api/errors", payload);
+    const result = await runEngine("errors", payload);
     state.model = result.model;
     mseValue.textContent = formatNumber(result.metrics.mse);
     rmseValue.textContent = formatNumber(result.metrics.rmse);
@@ -706,6 +673,4 @@ function timestamp() {
   ].join("");
 }
 
-window.addEventListener("DOMContentLoaded", () => {
-  checkBackend();
-});
+initEngineBadge();
